@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Aligners">
+<meta name="theme-color" content="#f6f7f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111416" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Aligner Tracker</title>
+<style>
+:root{
+  --bg:#f6f7f8;--card:#fff;--text:#16191c;--muted:#6b737b;--line:#e4e7ea;
+  --accent:#1f9d8b;--accent-soft:#d9f2ee;--warn:#d98a1c;--warn-soft:#fbecd6;--bad:#cf4a3c;
+  --radius:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#111416;--card:#1b1f22;--text:#eef1f3;--muted:#98a1a9;--line:#2a3035;
+  --accent:#3cc2ae;--accent-soft:#163a35;--warn:#f0a440;--warn-soft:#3b2c16;--bad:#ef6b5d;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 84px)}
+h1{font-size:28px;margin:4px 0 14px}
+h2{font-size:20px;margin:0 0 10px}
+h3{font-size:16px;margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stack>*+*{margin-top:10px}
+button{font:inherit;border:0;border-radius:14px;padding:13px 16px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+button.secondary{background:var(--accent-soft);color:var(--accent)}
+button.ghost-btn{background:transparent;color:var(--accent);padding:8px 4px}
+button.danger{background:transparent;color:var(--bad)}
+button:disabled{opacity:.45}
+button.full{width:100%}
+input,select{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%}
+input[type=checkbox]{width:auto}
+input[type=range]{padding:0;border:0;background:none;accent-color:var(--accent)}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}
+.field{margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hidden{display:none!important}
+
+/* tabs */
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+nav button{flex:1;background:none;color:var(--muted);border-radius:0;padding:10px 0 8px;font-size:11px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button.active{color:var(--accent)}
+
+/* today */
+.ring-wrap{position:relative;width:230px;height:230px;margin:6px auto 14px}
+.ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring-bg{stroke:var(--line);fill:none;stroke-width:14}
+.ring-fg{stroke:var(--accent);fill:none;stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .6s}
+.ring-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.big{font-size:40px;font-weight:700;letter-spacing:-1px}
+.toggle{width:100%;padding:20px;font-size:20px;border-radius:22px;display:block}
+.toggle .sub{display:block;font-size:13px;font-weight:500;opacity:.85;margin-top:2px}
+.toggle.out{background:var(--warn)}
+.out-info{text-align:center;margin:12px 0 16px;color:var(--muted)}
+.out-info.alert{color:var(--warn);font-weight:600}
+.banner{background:var(--warn-soft);color:var(--text);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:14px}
+.progress{height:8px;background:var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+.progress>div{height:100%;background:var(--accent);border-radius:8px}
+.sess{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.sess:first-child{border-top:0}
+.bars{display:flex;align-items:flex-end;gap:4px;height:110px;margin-top:12px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.bar i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:var(--accent)}
+.bar i.miss{background:var(--warn)}
+.bar i.part{opacity:.5}
+.bar span{font-size:10px;color:var(--muted);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-weight:500;padding:6px 4px}
+td{padding:10px 4px;border-top:1px solid var(--line)}
+
+/* photos */
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.ph{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:var(--line)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph span{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:8px;text-transform:capitalize}
+
+/* modal */
+.modal{position:fixed;inset:0;background:var(--bg);z-index:50;overflow:auto;padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 20px)}
+.frame{position:relative;width:100%;aspect-ratio:4/5;border-radius:16px;overflow:hidden;background:#000;touch-action:none}
+.frame video,.frame canvas,.frame>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.frame .ghost{opacity:.3;pointer-events:none}
+.frame .guide{position:absolute;inset:0;pointer-events:none;background:
+  linear-gradient(to right,transparent calc(50% - .5px),rgba(255,255,255,.6) calc(50% - .5px),rgba(255,255,255,.6) calc(50% + .5px),transparent calc(50% + .5px)),
+  linear-gradient(to bottom,transparent calc(50% - .5px),rgba(255,255,255,.35) calc(50% - .5px),rgba(255,255,255,.35) calc(50% + .5px),transparent calc(50% + .5px))}
+.mirror{transform:scaleX(-1)}
+.shutter{width:74px;height:74px;border-radius:50%;padding:0;background:#fff;border:5px solid var(--accent);margin:0 auto;display:block}
+.cmp{position:relative;width:100%;aspect-ratio:4/5;border-radius:16px;overflow:hidden;background:var(--line)}
+.cmp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cmp .lbl{position:absolute;top:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:3px 8px;border-radius:8px}
+.cmp .line{position:absolute;top:0;bottom:0;width:2px;background:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:7px 12px;color:var(--text);margin:0;text-transform:capitalize}
+video.out{width:100%;border-radius:16px;background:#000;margin-top:12px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;z-index:100;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<section id="setup" class="hidden">
+  <h1>Welcome</h1>
+  <p class="muted">A few details to get started. You can change all of these later in Settings.</p>
+  <div class="card">
+    <div class="grid2">
+      <div class="field"><label>Total trays</label><input id="suTotal" type="number" inputmode="numeric" min="1" placeholder="e.g. 24"></div>
+      <div class="field"><label>Current tray</label><input id="suCurrent" type="number" inputmode="numeric" min="1" value="1"></div>
+    </div>
+    <div class="field"><label>Started current tray on</label><input id="suStart" type="date"></div>
+    <div class="grid2">
+      <div class="field"><label>Daily target (hours)</label><input id="suTarget" type="number" inputmode="decimal" value="22" min="1" max="24" step="0.5"></div>
+      <div class="field"><label>Days per tray</label><input id="suInterval" type="number" inputmode="numeric" value="14" min="1"></div>
+    </div>
+    <div class="field"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input id="suWearing" type="checkbox" checked> I'm wearing my trays right now</label></div>
+    <button class="full" id="suSave">Start tracking</button>
+  </div>
+</section>
+
+<main id="app" class="hidden">
+  <!-- TODAY -->
+  <section id="tab-today">
+    <h1>Today</h1>
+    <div id="backupBanner"></div>
+    <div class="card" id="trayCard"></div>
+    <div class="ring-wrap">
+      <svg viewBox="0 0 200 200"><circle class="ring-bg" cx="100" cy="100" r="88"/><circle id="ringFg" class="ring-fg" cx="100" cy="100" r="88" stroke-dasharray="552.92" stroke-dashoffset="552.92"/></svg>
+      <div class="ring-text"><div id="wearToday" class="big">0h 0m</div><div class="muted" id="wearTarget">worn of 22h</div></div>
+    </div>
+    <button id="toggleBtn" class="toggle"></button>
+    <div id="outInfo" class="out-info"></div>
+    <div class="card">
+      <div class="row"><h3>Today's wear sessions</h3><button class="ghost-btn" id="addSess">+ Add</button></div>
+      <div id="sessList" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <div class="row"><h3>Last 14 days</h3><span id="streak" class="muted small"></span></div>
+      <div id="history" class="bars"></div>
+      <div class="muted small" style="margin-top:8px">Green = target met · amber = missed</div>
+    </div>
+  </section>
+
+  <!-- TRAYS -->
+  <section id="tab-trays" class="hidden">
+    <h1>Trays</h1>
+    <div class="card" id="trayDetail"></div>
+    <div class="card">
+      <h3 style="margin-bottom:6px">All trays</h3>
+      <table><thead><tr><th>Tray</th><th>Started</th><th>Days</th><th>Avg wear</th></tr></thead><tbody id="trayRows"></tbody></table>
+      <div class="muted small" style="margin-top:8px">Tap a tray to fix its start date.</div>
+    </div>
+  </section>
+
+  <!-- PHOTOS -->
+  <section id="tab-photos" class="hidden">
+    <h1>Photos</h1>
+    <div class="grid2" style="margin-bottom:14px">
+      <button id="addPhotos">Add photos</button>
+      <button class="secondary" id="openCompare">Compare</button>
+    </div>
+    <div id="photoGroups"></div>
+  </section>
+
+  <!-- VIDEO -->
+  <section id="tab-video" class="hidden">
+    <h1>Progress video</h1>
+    <div class="card">
+      <div class="field"><label>Angle</label><select id="vAngle"></select></div>
+      <div class="grid2">
+        <div class="field"><label>From tray</label><select id="vFrom"></select></div>
+        <div class="field"><label>To tray</label><select id="vTo"></select></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Seconds per photo</label><input id="vPer" type="number" inputmode="decimal" value="1" min="0.3" step="0.1"></div>
+        <div class="field"><label>Fade (seconds)</label><input id="vFade" type="number" inputmode="decimal" value="0.5" min="0" step="0.1"></div>
+      </div>
+      <div class="field"><label>Format</label><select id="vFormat"><option value="portrait">Portrait 1080 × 1350</option><option value="square">Square 1080 × 1080</option></select></div>
+      <div class="field"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input id="vCaption" type="checkbox" checked> Show tray and date on each frame</label></div>
+      <button class="full" id="makeVideo">Make video</button>
+      <div id="vStatus" class="muted small" style="margin-top:10px;text-align:center"></div>
+      <video id="vOut" class="out hidden" controls playsinline></video>
+      <button class="full secondary hidden" id="vShare" style="margin-top:10px">Save / share video</button>
+    </div>
+    <p class="muted small">Keep the app open while the video is made; it records in real time.</p>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="hidden">
+    <h1>Settings</h1>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>Daily target (hours)</label><input id="sTarget" type="number" inputmode="decimal" min="1" max="24" step="0.5"></div>
+        <div class="field"><label>Days per tray</label><input id="sInterval" type="number" inputmode="numeric" min="1"></div>
+      </div>
+      <div class="field"><label>Total trays</label><input id="sTotal" type="number" inputmode="numeric" min="1"></div>
+      <div class="field"><label>Photo angles</label><div class="chips" id="sAngles"></div></div>
+      <button class="full" id="sSave">Save settings</button>
+    </div>
+    <div class="card stack">
+      <h3>Backup</h3>
+      <p class="muted small" style="margin:6px 0 0">All your data lives only on this iPhone. If you remove the app from your Home Screen, the data is deleted, so back up regularly to iCloud Drive or Files.</p>
+      <div id="lastBackup" class="small"></div>
+      <button class="full" id="exportBtn">Create backup</button>
+      <button class="full secondary hidden" id="exportShare">Save backup file</button>
+      <button class="full secondary" id="importBtn">Restore from backup</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </div>
+    <div class="card">
+      <button class="full danger" id="resetBtn">Erase all data</button>
+    </div>
+  </section>
+</main>
+
+<nav id="nav" class="hidden">
+  <button data-tab="today" class="active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</button>
+  <button data-tab="trays"><svg viewBox="0 0 24 24"><path d="M4 9c0-3 3-4 8-4s8 1 8 4-2 8-4 8-2-3-4-3-2 3-4 3-4-5-4-8z"/></svg>Trays</button>
+  <button data-tab="photos"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>Photos</button>
+  <button data-tab="video"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg>Video</button>
+  <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.3 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>Settings</button>
+</nav>
+
+<div id="modal" class="modal hidden"></div>
+<input type="file" id="pickFile" accept="image/*" class="hidden">
+<div id="toast" class="toast"></div>
+
+<script>
+'use strict';
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const HOUR = 3600000, MIN = 60000;
+const ALL_ANGLES = ['front','left','right','upper','lower'];
+const pad = n => String(n).padStart(2,'0');
+function fmtHM(ms){ms=Math.max(0,ms);const h=Math.floor(ms/HOUR),m=Math.floor(ms%HOUR/MIN);return `${h}h ${m}m`;}
+function fmtMS(ms){ms=Math.max(0,ms);const h=Math.floor(ms/HOUR),m=Math.floor(ms%HOUR/MIN),s=Math.floor(ms%MIN/1000);return h?`${h}h ${pad(m)}m`:`${m}m ${pad(s)}s`;}
+function fmtTime(ts){const d=new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+function fmtDate(ts,year){return new Date(ts).toLocaleDateString('en-GB',year?{day:'numeric',month:'short',year:'numeric'}:{day:'numeric',month:'short'});}
+function dayStart(ts){const d=new Date(ts);d.setHours(0,0,0,0);return d.getTime();}
+function addDays(ts,n){const d=new Date(ts);d.setDate(d.getDate()+n);return d.getTime();}
+function daysBetween(a,b){return Math.round((dayStart(b)-dayStart(a))/86400000);}
+function toLocalInput(ts){const d=new Date(ts);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);}
+function toDateInput(ts){return toLocalInput(ts).slice(0,10);}
+function fromDateInput(v){const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).getTime();}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200);}
+const cap = s => s[0].toUpperCase()+s.slice(1);
+
+/* ---------- IndexedDB ---------- */
+let DB;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('aligner-tracker',1);
+  r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('kv');d.createObjectStore('sessions',{keyPath:'id',autoIncrement:true});d.createObjectStore('trays',{keyPath:'num'});d.createObjectStore('photos',{keyPath:'id',autoIncrement:true});};
+  r.onsuccess=()=>res(DB=r.result);r.onerror=()=>rej(r.error);});}
+function tx(store,mode,fn){return new Promise((res,rej)=>{const t=DB.transaction(store,mode);const req=fn(t.objectStore(store));let out;if(req)req.onsuccess=()=>out=req.result;t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});}
+const dbGet=(s,k)=>tx(s,'readonly',o=>o.get(k));
+const dbPut=(s,v,k)=>tx(s,'readwrite',o=>k===undefined?o.put(v):o.put(v,k));
+const dbAll=s=>tx(s,'readonly',o=>o.getAll());
+const dbDel=(s,k)=>tx(s,'readwrite',o=>o.delete(k));
+const dbClear=s=>tx(s,'readwrite',o=>o.clear());
+
+/* ---------- state ---------- */
+const DEFAULTS={setupDone:false,target:22,interval:14,totalTrays:24,angles:['front','left','right'],trackingStart:null,lastBackup:null};
+let S={settings:{...DEFAULTS},sessions:[],trays:[],photos:[]};
+const urlCache=new Map();
+function photoURL(p){if(!urlCache.has(p.id))urlCache.set(p.id,URL.createObjectURL(p.blob));return urlCache.get(p.id);}
+async function saveSettings(){await dbPut('kv',S.settings,'settings');}
+async function loadAll(){
+  S.settings={...DEFAULTS,...(await dbGet('kv','settings')||{})};
+  S.sessions=(await dbAll('sessions')).sort((a,b)=>a.start-b.start);
+  S.trays=(await dbAll('trays')).sort((a,b)=>a.num-b.num);
+  S.photos=await dbAll('photos');
+}
+
+/* ---------- wear maths ---------- */
+const openSession=()=>S.sessions.find(s=>s.end==null);
+function wearBetween(a,b){const now=Date.now();let t=0;for(const s of S.sessions){const e=s.end??now;t+=Math.max(0,Math.min(e,b)-Math.max(s.start,a));}return t;}
+function dayStats(ds){ // stats for the day starting at ds
+  const now=Date.now(),de=addDays(ds,1),from=Math.max(ds,S.settings.trackingStart||ds),to=Math.min(de,now);
+  const tracked=Math.max(0,to-from),wear=wearBetween(ds,de),out=Math.max(0,tracked-wear);
+  const allowance=(24-S.settings.target)*HOUR;
+  return {wear,out,allowance,met:out<=allowance,partial:from>ds,complete:now>=de};
+}
+function lastOutStart(){let t=S.settings.trackingStart||Date.now();for(const s of S.sessions)if(s.end&&s.end>t)t=s.end;return t;}
+function streak(){
+  const start=dayStart(S.settings.trackingStart||Date.now());let n=0,d=dayStart(Date.now());
+  const today=dayStats(d);if(today.met)n++;
+  d=addDays(d,-1);
+  while(d>=start){if(!dayStats(d).met)break;n++;d=addDays(d,-1);}
+  return n;
+}
+const currentTray=()=>S.trays[S.trays.length-1];
+
+/* ---------- navigation ---------- */
+let currentTab='today';
+function showTab(t){currentTab=t;for(const s of document.querySelectorAll('main>section'))s.classList.toggle('hidden',s.id!=='tab-'+t);
+  for(const b of document.querySelectorAll('nav button'))b.classList.toggle('active',b.dataset.tab===t);
+  ({today:renderToday,trays:renderTrays,photos:renderPhotos,video:renderVideoForm,settings:renderSettings})[t]();window.scrollTo(0,0);}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+/* ---------- TODAY ---------- */
+function trayLine(){
+  const t=currentTray();if(!t)return '';
+  const day=daysBetween(t.start,Date.now())+1,left=S.settings.interval-day+1;
+  return {t,day,left,next:addDays(dayStart(t.start),S.settings.interval)};
+}
+function renderToday(){
+  const L=trayLine(),st=S.settings;
+  if(L){const pct=Math.min(100,((L.t.num-1)+Math.min(1,(L.day-1)/st.interval))/st.totalTrays*100);
+    const end=addDays(L.next,(st.totalTrays-L.t.num)*st.interval);
+    $('#trayCard').innerHTML=`<div class="row"><h2 style="margin:0">Tray ${L.t.num} of ${st.totalTrays}</h2><span class="${L.left<=0?'':'muted'}" style="${L.left<=0?'color:var(--accent);font-weight:600':''}">${L.left<=0?'Time to switch!':L.left+(L.left===1?' day':' days')+' to next tray'}</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div><div class="muted small" style="margin-top:6px">Estimated finish ${fmtDate(end,true)}</div>`;}
+  const ss=dayStart(Date.now()),se=addDays(ss,1);
+  const list=S.sessions.filter(s=>(s.end??Infinity)>ss&&s.start<se);
+  $('#sessList').innerHTML=list.length?list.map(s=>`<div class="sess"><div>${s.start<ss?'<span class="muted">yday </span>':''}${fmtTime(s.start)} → ${s.end?fmtTime(s.end):'<b>now</b>'}<div class="muted small">${fmtHM((s.end??Date.now())-s.start)}</div></div><button class="ghost-btn" data-sid="${s.id}">Edit</button></div>`).join(''):'<div class="muted small" style="padding:8px 0">No sessions yet today.</div>';
+  $('#sessList').querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>editSession(S.sessions.find(s=>s.id==b.dataset.sid)));
+  // history
+  const start=dayStart(st.trackingStart||Date.now());let bars='';
+  for(let i=13;i>=0;i--){const d=addDays(ss,-i);const lbl=new Date(d).toLocaleDateString('en-GB',{weekday:'narrow'});
+    if(d<start){bars+=`<div class="bar"><i style="height:0"></i><span>${lbl}</span></div>`;continue;}
+    const x=dayStats(d);const h=Math.max(3,x.wear/(24*HOUR)*100);
+    bars+=`<div class="bar" title="${fmtHM(x.wear)}"><i class="${x.met?'':'miss'} ${(x.partial||!x.complete)?'part':''}" style="height:${h}%"></i><span>${lbl}</span></div>`;}
+  $('#history').innerHTML=bars;
+  const n=streak();$('#streak').textContent=n?`🔥 ${n}-day streak`:'';
+  // backup banner
+  const lb=st.lastBackup,since=Date.now()-(lb||st.trackingStart||Date.now());
+  $('#backupBanner').innerHTML=since>30*86400000?`<div class="banner">It's been a while since your last backup. <a href="#" id="goBackup" style="color:var(--accent);font-weight:600">Back up now</a></div>`:'';
+  const gb=$('#goBackup');if(gb)gb.onclick=e=>{e.preventDefault();showTab('settings');};
+  tick();
+}
+function tick(){
+  if(currentTab!=='today'||$('#app').classList.contains('hidden'))return;
+  const ds=dayStart(Date.now()),x=dayStats(ds),target=S.settings.target*HOUR;
+  $('#wearToday').textContent=fmtHM(x.wear);
+  $('#wearTarget').textContent=`worn of ${S.settings.target}h`;
+  $('#ringFg').style.strokeDashoffset=552.92*(1-Math.min(1,x.wear/target));
+  $('#ringFg').style.stroke=x.met?'var(--accent)':'var(--warn)';$('#ringFg').style.opacity=x.wear<MIN?0:1;
+  const open=openSession(),btn=$('#toggleBtn'),info=$('#outInfo');
+  if(open){btn.className='toggle';btn.innerHTML=`Wearing<span class="sub">Tap when you take your trays out</span>`;
+    info.className='out-info';info.textContent=`Out today: ${fmtHM(x.out)} of ${fmtHM(x.allowance)} allowed`;}
+  else{const o=Date.now()-lastOutStart();btn.className='toggle out';btn.innerHTML=`Trays out · ${fmtMS(o)}<span class="sub">Tap when your trays are back in</span>`;
+    info.className='out-info'+(o>30*MIN?' alert':'');info.textContent=(o>30*MIN?'Out for over 30 minutes · ':'')+`Out today: ${fmtHM(x.out)} of ${fmtHM(x.allowance)} allowed`;}
+}
+let lastMinute=-1;
+setInterval(()=>{tick();const m=new Date().getMinutes();if(m!==lastMinute){if(lastMinute!==-1&&currentTab==='today')renderToday();lastMinute=m;}},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentTab==='today')renderToday();});
+
+$('#toggleBtn').onclick=async()=>{
+  const open=openSession(),now=Date.now();
+  if(open){open.end=now;await dbPut('sessions',open);}
+  else{const s={start:now,end:null};s.id=await dbPut('sessions',s);S.sessions.push(s);}
+  if(navigator.vibrate)navigator.vibrate(15);
+  renderToday();
+};
+function overlaps(a,b,ignoreId){const now=Date.now();return S.sessions.some(s=>s.id!==ignoreId&&a<(s.end??now)&&(b??now)>s.start);}
+function editSession(s){
+  const isNew=!s,now=Date.now();s=s||{start:now-HOUR,end:now};
+  openModal(`<div class="row"><h2>${isNew?'Add':'Edit'} wear session</h2><button class="ghost-btn" data-close>Cancel</button></div>
+   <div class="card"><div class="field"><label>Trays in</label><input type="datetime-local" id="esStart" value="${toLocalInput(s.start)}"></div>
+   <div class="field"><label>Trays out</label><input type="datetime-local" id="esEnd" value="${s.end?toLocalInput(s.end):''}"></div>
+   <div class="field"><label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" id="esOpen" ${s.end?'':'checked'}> Still wearing (no end yet)</label></div>
+   <button class="full" id="esSave">Save</button>${isNew?'':'<button class="full danger" id="esDel" style="margin-top:8px">Delete session</button>'}</div>`);
+  $('#esOpen').onchange=()=>{$('#esEnd').disabled=$('#esOpen').checked;};$('#esEnd').disabled=$('#esOpen').checked;
+  $('#esSave').onclick=async()=>{
+    const a=new Date($('#esStart').value).getTime(),stillOpen=$('#esOpen').checked,b=stillOpen?null:new Date($('#esEnd').value).getTime();
+    if(!a||(!stillOpen&&!b))return toast('Please fill in both times');
+    if(b!=null&&b<=a)return toast('End must be after start');
+    if(a>now||(b&&b>now))return toast("Times can't be in the future");
+    if(stillOpen&&S.sessions.some(x=>x.end==null&&x.id!==s.id))return toast('Another session is already running');
+    if(overlaps(a,b,s.id))return toast('This overlaps another session');
+    s.start=a;s.end=b;const id=await dbPut('sessions',s);if(isNew){s.id=id;S.sessions.push(s);}
+    S.sessions.sort((x,y)=>x.start-y.start);closeModal();renderToday();toast('Saved');};
+  if(!isNew)$('#esDel').onclick=async()=>{if(!confirm('Delete this session?'))return;await dbDel('sessions',s.id);S.sessions=S.sessions.filter(x=>x.id!==s.id);closeModal();renderToday();};
+}
+$('#addSess').onclick=()=>editSession(null);
+
+/* ---------- TRAYS ---------- */
+function trayAvg(i){
+  const t=S.trays[i],nxt=S.trays[i+1],a=Math.max(t.start,S.settings.trackingStart||t.start),b=nxt?nxt.start:Date.now();
+  const span=b-a;if(span<HOUR)return null;return wearBetween(a,b)/(span/86400000);
+}
+function renderTrays(){
+  const L=trayLine(),st=S.settings;
+  if(L){const atEnd=L.t.num>=st.totalTrays;
+    $('#trayDetail').innerHTML=`<h2>Tray ${L.t.num} of ${st.totalTrays}</h2>
+      <div class="muted">Started ${fmtDate(L.t.start,true)} · day ${L.day} of ${st.interval}</div>
+      <div class="muted">Next tray due ${fmtDate(L.next,true)}</div>
+      <button class="full" id="switchTray" style="margin-top:14px" ${atEnd?'disabled':''}>Switch to tray ${L.t.num+1}</button>
+      ${atEnd?'<div class="muted small" style="margin-top:8px">This is your last tray. Got refinements? Raise the total in Settings.</div>':''}`;
+    const sb=$('#switchTray');if(sb&&!atEnd)sb.onclick=switchTray;}
+  $('#trayRows').innerHTML=S.trays.map((t,i)=>{const nxt=S.trays[i+1];const days=daysBetween(t.start,nxt?nxt.start:Date.now())+(nxt?0:1);const avg=trayAvg(i);
+    return `<tr data-tn="${t.num}"><td><b>${t.num}</b></td><td>${fmtDate(t.start)}</td><td>${days}</td><td>${avg==null?'–':fmtHM(avg)}</td></tr>`;}).reverse().join('');
+  $('#trayRows').querySelectorAll('tr').forEach(r=>r.onclick=()=>editTray(+r.dataset.tn));
+}
+async function switchTray(){
+  const cur=currentTray(),n=cur.num+1;
+  if(!confirm(`Switch to tray ${n} now?`))return;
+  const t={num:n,start:Date.now()};await dbPut('trays',t);S.trays.push(t);
+  renderTrays();toast(`Tray ${n} started`);openPhotoFlow(n);
+}
+function editTray(num){
+  const t=S.trays.find(x=>x.num===num),i=S.trays.indexOf(t),isLast=i===S.trays.length-1;
+  openModal(`<div class="row"><h2>Tray ${num}</h2><button class="ghost-btn" data-close>Cancel</button></div>
+    <div class="card"><div class="field"><label>Start date</label><input type="date" id="etDate" value="${toDateInput(t.start)}"></div>
+    <button class="full" id="etSave">Save</button>${isLast&&S.trays.length>1?'<button class="full danger" id="etDel" style="margin-top:8px">Undo this tray switch</button>':''}</div>`);
+  $('#etSave').onclick=async()=>{const v=$('#etDate').value;if(!v)return;
+    const d=fromDateInput(v),prev=S.trays[i-1],next=S.trays[i+1];
+    if(prev&&d<=prev.start)return toast('Must be after the previous tray');
+    if(next&&d>=next.start)return toast('Must be before the next tray');
+    t.start=d;await dbPut('trays',t);closeModal();renderTrays();};
+  const del=$('#etDel');if(del)del.onclick=async()=>{if(!confirm(`Remove tray ${num}? Its photos stay in the gallery.`))return;await dbDel('trays',num);S.trays.pop();closeModal();renderTrays();};
+}
+
+/* ---------- PHOTOS ---------- */
+function renderPhotos(){
+  const byTray={};for(const p of S.photos)(byTray[p.tray]=byTray[p.tray]||[]).push(p);
+  const nums=Object.keys(byTray).map(Number).sort((a,b)=>b-a);
+  $('#photoGroups').innerHTML=nums.length?nums.map(n=>{const ps=byTray[n].sort((a,b)=>ALL_ANGLES.indexOf(a.angle)-ALL_ANGLES.indexOf(b.angle));
+    return `<div class="card"><div class="row"><h3>Tray ${n}</h3><span class="muted small">${fmtDate(ps[0].date,true)}</span></div><div class="ph-grid">${ps.map(p=>`<div class="ph" data-pid="${p.id}"><img src="${photoURL(p)}" alt=""><span>${p.angle}</span></div>`).join('')}</div></div>`;}).join('')
+    :'<div class="card muted">No photos yet. Tap <b>Add photos</b> to take your first set.</div>';
+  $('#photoGroups').querySelectorAll('[data-pid]').forEach(el=>el.onclick=()=>viewPhoto(S.photos.find(p=>p.id==el.dataset.pid)));
+}
+$('#addPhotos').onclick=()=>{const t=currentTray();if(t)openPhotoFlow(t.num);};
+function viewPhoto(p){
+  openModal(`<div class="row"><h2>Tray ${p.tray} · ${cap(p.angle)}</h2><button class="ghost-btn" data-close>Close</button></div>
+    <div class="muted small" style="margin-bottom:10px">${fmtDate(p.date,true)}</div>
+    <img src="${photoURL(p)}" style="width:100%;border-radius:16px;display:block">
+    <div class="grid2" style="margin-top:12px"><button class="secondary" id="vpRetake">Retake</button><button class="danger" id="vpDel">Delete</button></div>`);
+  $('#vpRetake').onclick=()=>openPhotoFlow(p.tray,[p.angle]);
+  $('#vpDel').onclick=async()=>{if(!confirm('Delete this photo?'))return;await deletePhoto(p);closeModal();renderPhotos();};
+}
+async function deletePhoto(p){await dbDel('photos',p.id);S.photos=S.photos.filter(x=>x.id!==p.id);if(urlCache.has(p.id)){URL.revokeObjectURL(urlCache.get(p.id));urlCache.delete(p.id);}}
+function ghostFor(tray,angle){
+  const c=S.photos.filter(p=>p.angle===angle&&p.tray<tray).sort((a,b)=>b.tray-a.tray)[0]
+       ||S.photos.find(p=>p.angle===angle&&p.tray===tray);
+  return c?photoURL(c):null;
+}
+
+/* photo flow: step through angles */
+let flow=null,camStream=null,facing='environment';
+function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}}
+function openPhotoFlow(tray,angles){flow={tray,angles:angles||S.settings.angles.slice(),i:0};flowStep();}
+function flowStep(){
+  stopCam();
+  if(flow.i>=flow.angles.length){closeModal();if(currentTab==='photos')renderPhotos();toast('Photos saved');return;}
+  const a=flow.angles[flow.i],g=ghostFor(flow.tray,a);
+  openModal(`<div class="row"><h2>${cap(a)} · tray ${flow.tray}</h2><button class="ghost-btn" data-close>Done</button></div>
+    <div class="muted small" style="margin-bottom:10px">Photo ${flow.i+1} of ${flow.angles.length}. ${g?'Your last photo is shown faintly so you can line this one up.':'This is the first photo for this angle.'}</div>
+    <div class="frame" style="margin-bottom:14px">${g?`<img src="${g}" style="opacity:.9">`:'<div class="muted" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">No earlier photo</div>'}</div>
+    <div class="stack"><button class="full" id="pfCam">Take photo</button><button class="full secondary" id="pfPick">Choose from library</button><button class="full ghost-btn" id="pfSkip">Skip this angle</button></div>`,()=>{stopCam();flow=null;});
+  $('#pfCam').onclick=()=>cameraScreen(a,g);
+  $('#pfPick').onclick=()=>{const f=$('#pickFile');f.value='';f.onchange=async()=>{if(!f.files[0])return;const img=await loadImg(f.files[0]);editorScreen(img,a,g);};f.click();};
+  $('#pfSkip').onclick=()=>{flow.i++;flowStep();};
+}
+async function cameraScreen(angle,ghost){
+  openModal(`<div class="row"><h2>${cap(angle)}</h2><button class="ghost-btn" id="camBack">Back</button></div>
+    <div class="frame" style="margin:6px 0 16px"><video id="camV" playsinline autoplay muted class="${facing==='user'?'mirror':''}"></video>${ghost?`<img class="ghost" src="${ghost}">`:''}<div class="guide"></div></div>
+    <div class="row" style="justify-content:space-around"><button class="secondary" id="camFlip">Flip</button><button class="shutter" id="camShot" aria-label="Take photo"></button><button class="secondary" id="camGhost" ${ghost?'':'disabled'}>Ghost</button></div>`,()=>{stopCam();flow=null;});
+  $('#camBack').onclick=()=>flowStep();
+  $('#camGhost').onclick=()=>{const g=document.querySelector('#modal .ghost');if(g)g.classList.toggle('hidden');};
+  $('#camFlip').onclick=()=>{facing=facing==='user'?'environment':'user';cameraScreen(angle,ghost);};
+  try{stopCam();camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1920},height:{ideal:1920}},audio:false});
+    $('#camV').srcObject=camStream;}
+  catch(e){toast('Camera not available. Use "Choose from library".');return flowStep();}
+  $('#camShot').onclick=()=>{const v=$('#camV');if(!v.videoWidth)return;
+    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;const x=c.getContext('2d');
+    if(facing==='user'){x.translate(c.width,0);x.scale(-1,1);}x.drawImage(v,0,0);stopCam();editorScreen(c,angle,ghost);};
+}
+function loadImg(blob){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob);});}
+function editorScreen(src,angle,ghost){
+  const sw=src.naturalWidth||src.width,sh=src.naturalHeight||src.height;
+  const E={zoom:1,rot:0,tx:0,ty:0};
+  openModal(`<div class="row"><h2>Line it up</h2><button class="ghost-btn" id="edBack">Retake</button></div>
+    <div class="muted small" style="margin-bottom:8px">Drag to move and pinch to zoom, so your teeth sit where they did last time.</div>
+    <div class="frame" id="edFrame"><canvas id="edC" width="600" height="750"></canvas>${ghost?`<img class="ghost" src="${ghost}">`:''}<div class="guide"></div></div>
+    <div class="card" style="margin-top:12px">
+      <div class="field"><label>Zoom</label><input type="range" id="edZoom" min="1" max="3" step="0.01" value="1"></div>
+      <div class="field"><label>Rotate</label><input type="range" id="edRot" min="-15" max="15" step="0.1" value="0"></div>
+      <div class="row">${ghost?'<label style="display:flex;gap:8px;align-items:center;color:var(--text);margin:0"><input type="checkbox" id="edGhost" checked> Show last photo</label>':'<span></span>'}<button class="ghost-btn" id="edReset">Reset</button></div>
+    </div>
+    <button class="full" id="edSave">Save photo</button>`,()=>{flow=null;});
+  const cv=$('#edC'),ctx=cv.getContext('2d');
+  function draw(c,W,H){c.save();c.fillStyle='#000';c.fillRect(0,0,W,H);c.translate(W/2+E.tx*W,H/2+E.ty*H);c.rotate(E.rot*Math.PI/180);
+    const s=Math.max(W/sw,H/sh)*E.zoom;c.scale(s,s);c.drawImage(src,-sw/2,-sh/2);c.restore();}
+  const redraw=()=>draw(ctx,cv.width,cv.height);redraw();
+  $('#edZoom').oninput=e=>{E.zoom=+e.target.value;redraw();};
+  $('#edRot').oninput=e=>{E.rot=+e.target.value;redraw();};
+  $('#edReset').onclick=()=>{Object.assign(E,{zoom:1,rot:0,tx:0,ty:0});$('#edZoom').value=1;$('#edRot').value=0;redraw();};
+  const eg=$('#edGhost');if(eg)eg.onchange=()=>document.querySelector('#edFrame .ghost').classList.toggle('hidden',!eg.checked);
+  // gestures
+  const fr=$('#edFrame'),pts=new Map();let last=null;
+  const dist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+  fr.onpointerdown=e=>{fr.setPointerCapture(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY});last=pts.size===2?{d:dist(),z:E.zoom}:null;};
+  fr.onpointermove=e=>{if(!pts.has(e.pointerId))return;const p=pts.get(e.pointerId),r=fr.getBoundingClientRect();
+    if(pts.size===1){E.tx+=(e.clientX-p.x)/r.width;E.ty+=(e.clientY-p.y)/r.height;}
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===2&&last){E.zoom=Math.min(3,Math.max(1,last.z*dist()/last.d));$('#edZoom').value=E.zoom;}
+    redraw();};
+  fr.onpointerup=fr.onpointercancel=e=>{pts.delete(e.pointerId);last=null;};
+  $('#edBack').onclick=()=>flowStep();
+  $('#edSave').onclick=async()=>{
+    $('#edSave').disabled=true;
+    const out=document.createElement('canvas');out.width=1200;out.height=1500;draw(out.getContext('2d'),1200,1500);
+    const blob=await new Promise(r=>out.toBlob(r,'image/jpeg',0.88));
+    const old=S.photos.find(p=>p.tray===flow.tray&&p.angle===angle);if(old)await deletePhoto(old);
+    const p={tray:flow.tray,angle,date:Date.now(),blob};p.id=await dbPut('photos',p);S.photos.push(p);
+    flow.i++;flowStep();};
+}
+
+/* compare */
+$('#openCompare').onclick=()=>{
+  const angles=ALL_ANGLES.filter(a=>S.photos.some(p=>p.angle===a));
+  if(!angles.length)return toast('Add some photos first');
+  openModal(`<div class="row"><h2>Compare</h2><button class="ghost-btn" data-close>Close</button></div>
+    <div class="field"><label>Angle</label><select id="cAngle">${angles.map(a=>`<option value="${a}">${cap(a)}</option>`).join('')}</select></div>
+    <div class="grid2"><div class="field"><label>Before</label><select id="cA"></select></div><div class="field"><label>After</label><select id="cB"></select></div></div>
+    <div class="cmp" id="cBox"><img id="cImgA"><img id="cImgB"><div class="line" id="cLine"></div><span class="lbl" style="left:8px" id="cLa"></span><span class="lbl" style="right:8px" id="cLb"></span></div>
+    <input type="range" id="cSlide" min="0" max="100" value="50" style="margin-top:12px">`);
+  const fill=()=>{const a=$('#cAngle').value,ps=S.photos.filter(p=>p.angle===a).sort((x,y)=>x.tray-y.tray);
+    const opts=ps.map(p=>`<option value="${p.id}">Tray ${p.tray}</option>`).join('');$('#cA').innerHTML=opts;$('#cB').innerHTML=opts;
+    $('#cA').value=ps[0].id;$('#cB').value=ps[ps.length-1].id;show();};
+  const show=()=>{const A=S.photos.find(p=>p.id==$('#cA').value),B=S.photos.find(p=>p.id==$('#cB').value);
+    $('#cImgA').src=photoURL(A);$('#cImgB').src=photoURL(B);$('#cLa').textContent='Tray '+A.tray;$('#cLb').textContent='Tray '+B.tray;slide();};
+  const slide=()=>{const v=$('#cSlide').value;$('#cImgB').style.clipPath=`inset(0 0 0 ${v}%)`;$('#cLine').style.left=v+'%';};
+  $('#cAngle').onchange=fill;$('#cA').onchange=show;$('#cB').onchange=show;$('#cSlide').oninput=slide;fill();
+};
+
+/* ---------- VIDEO ---------- */
+function renderVideoForm(){
+  const angles=ALL_ANGLES.filter(a=>S.photos.some(p=>p.angle===a));
+  const sel=$('#vAngle'),prev=sel.value;
+  sel.innerHTML=angles.length?angles.map(a=>`<option value="${a}">${cap(a)}</option>`).join(''):'<option value="">No photos yet</option>';
+  if(angles.includes(prev))sel.value=prev;
+  fillRange();
+}
+function fillRange(){
+  const a=$('#vAngle').value,trays=[...new Set(S.photos.filter(p=>p.angle===a).map(p=>p.tray))].sort((x,y)=>x-y);
+  const o=trays.map(t=>`<option value="${t}">Tray ${t}</option>`).join('');$('#vFrom').innerHTML=o;$('#vTo').innerHTML=o;
+  if(trays.length){$('#vFrom').value=trays[0];$('#vTo').value=trays[trays.length-1];}
+  $('#makeVideo').disabled=trays.length<2;
+  $('#vStatus').textContent=trays.length<2?'You need photos from at least 2 trays for this angle.':`${trays.length} photos available.`;
+}
+$('#vAngle').onchange=fillRange;
+function drawCover(c,img,W,H,alpha){const iw=img.naturalWidth,ih=img.naturalHeight,s=Math.max(W/iw,H/ih);c.globalAlpha=alpha;c.drawImage(img,(W-iw*s)/2,(H-ih*s)/2,iw*s,ih*s);c.globalAlpha=1;}
+function drawCaption(c,text,W,H){c.font='600 40px -apple-system,system-ui,sans-serif';const w=c.measureText(text).width+44;
+  c.fillStyle='rgba(0,0,0,.55)';const x=40,y=H-110,h=70,r=20;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.fill();
+  c.fillStyle='#fff';c.textBaseline='middle';c.fillText(text,x+22,y+h/2+2);}
+let videoBlob=null;
+$('#makeVideo').onclick=async()=>{
+  if(typeof MediaRecorder==='undefined')return toast('Video recording is not supported on this device');
+  const a=$('#vAngle').value,from=+$('#vFrom').value,to=+$('#vTo').value;
+  const ps=S.photos.filter(p=>p.angle===a&&p.tray>=Math.min(from,to)&&p.tray<=Math.max(from,to)).sort((x,y)=>x.tray-y.tray);
+  if(ps.length<2)return toast('Choose a range with at least 2 photos');
+  const per=Math.max(0.3,+$('#vPer').value||1)*1000,fade=Math.min(Math.max(0,+$('#vFade').value||0)*1000,per*0.9);
+  const W=1080,H=$('#vFormat').value==='square'?1080:1350,captions=$('#vCaption').checked;
+  $('#makeVideo').disabled=true;$('#vShare').classList.add('hidden');$('#vOut').classList.add('hidden');
+  const imgs=await Promise.all(ps.map(p=>loadImg(p.blob)));
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');
+  if(!cv.captureStream){$('#makeVideo').disabled=false;return toast('Video recording is not supported on this device');}
+  cv.style.cssText='position:fixed;left:-99999px;top:0;width:10px;height:10px';document.body.appendChild(cv);
+  const mime=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm'].find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
+  const rec=new MediaRecorder(cv.captureStream(30),mime?{mimeType:mime,videoBitsPerSecond:8e6}:{});
+  const chunks=[];rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  const done=new Promise(r=>rec.onstop=r);
+  const n=imgs.length,total=per*n+800;
+  const frame=t=>{const i=Math.min(n-1,Math.floor(t/per)),local=t-i*per;c.fillStyle='#000';c.fillRect(0,0,W,H);
+    drawCover(c,imgs[i],W,H,1);let capIdx=i;
+    if(i<n-1&&local>per-fade){const al=(local-(per-fade))/fade;drawCover(c,imgs[i+1],W,H,al);if(al>.5)capIdx=i+1;}
+    if(captions)drawCaption(c,`Tray ${ps[capIdx].tray} · ${fmtDate(ps[capIdx].date)}`,W,H);};
+  frame(0);rec.start(250);const t0=performance.now();
+  await new Promise(res=>{const loop=()=>{const t=performance.now()-t0;frame(Math.min(t,total));$('#vStatus').textContent=`Recording… ${Math.min(100,Math.round(t/total*100))}%`;
+    if(t>=total)return res();requestAnimationFrame(loop);};requestAnimationFrame(loop);});
+  rec.stop();await done;
+  videoBlob=new Blob(chunks,{type:(mime||'video/mp4').split(';')[0]});
+  const v=$('#vOut');v.src=URL.createObjectURL(videoBlob);v.classList.remove('hidden');
+  $('#vShare').classList.remove('hidden');$('#makeVideo').disabled=false;$('#vStatus').textContent='Done! Preview below.';
+  imgs.forEach(i=>URL.revokeObjectURL(i.src));cv.remove();
+};
+async function shareFile(blob,name){
+  const f=new File([blob],name,{type:blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return true;}catch(e){if(e.name==='AbortError')return false;}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();return true;
+}
+$('#vShare').onclick=()=>{if(videoBlob)shareFile(videoBlob,`aligner-progress-${toDateInput(Date.now())}.${videoBlob.type.includes('webm')?'webm':'mp4'}`);};
+
+/* ---------- SETTINGS ---------- */
+function renderSettings(){
+  const st=S.settings;$('#sTarget').value=st.target;$('#sInterval').value=st.interval;$('#sTotal').value=st.totalTrays;
+  $('#sAngles').innerHTML=ALL_ANGLES.map(a=>`<label><input type="checkbox" value="${a}" ${st.angles.includes(a)?'checked':''}> ${a}</label>`).join('');
+  $('#lastBackup').innerHTML=st.lastBackup?`Last backup: <b>${fmtDate(st.lastBackup,true)}</b>`:'<span style="color:var(--warn)">No backup yet</span>';
+}
+$('#sSave').onclick=async()=>{
+  const t=+$('#sTarget').value,i=+$('#sInterval').value,tot=+$('#sTotal').value;
+  const angles=[...document.querySelectorAll('#sAngles input:checked')].map(x=>x.value);
+  if(!(t>0&&t<=24)||!(i>0)||!(tot>0))return toast('Please check the numbers');
+  if(!angles.length)return toast('Pick at least one angle');
+  if(tot<currentTray().num)return toast(`Total can't be less than your current tray (${currentTray().num})`);
+  Object.assign(S.settings,{target:t,interval:Math.round(i),totalTrays:Math.round(tot),angles});await saveSettings();toast('Settings saved');
+};
+function blobToDataURL(b){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(b);});}
+let backupBlob=null;
+$('#exportBtn').onclick=async()=>{
+  $('#exportBtn').disabled=true;$('#exportBtn').textContent='Preparing…';
+  const photos=[];for(const p of S.photos)photos.push({tray:p.tray,angle:p.angle,date:p.date,data:await blobToDataURL(p.blob)});
+  const data={app:'aligner-tracker',version:1,exported:Date.now(),settings:S.settings,sessions:S.sessions,trays:S.trays,photos};
+  backupBlob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  $('#exportBtn').textContent='Create backup';$('#exportBtn').disabled=false;
+  $('#exportShare').classList.remove('hidden');$('#exportShare').textContent=`Save backup file (${(backupBlob.size/1048576).toFixed(1)} MB)`;
+};
+$('#exportShare').onclick=async()=>{
+  if(!backupBlob)return;const ok=await shareFile(backupBlob,`aligner-backup-${toDateInput(Date.now())}.json`);
+  if(ok){S.settings.lastBackup=Date.now();await saveSettings();renderSettings();$('#exportShare').classList.add('hidden');toast('Backup saved');}
+};
+$('#importBtn').onclick=()=>{const f=$('#importFile');f.value='';f.click();};
+$('#importFile').onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  let data;try{data=JSON.parse(await file.text());}catch{return toast("That file isn't a valid backup");}
+  if(data.app!=='aligner-tracker')return toast("That file isn't an Aligner Tracker backup");
+  if(!confirm(`Restore backup from ${fmtDate(data.exported,true)}? This replaces everything currently in the app.`))return;
+  for(const s of ['sessions','trays','photos'])await dbClear(s);
+  await dbPut('kv',{...DEFAULTS,...data.settings},'settings');
+  for(const s of data.sessions)await dbPut('sessions',s);
+  for(const t of data.trays)await dbPut('trays',t);
+  for(const p of data.photos){const blob=await (await fetch(p.data)).blob();await dbPut('photos',{tray:p.tray,angle:p.angle,date:p.date,blob});}
+  urlCache.forEach(u=>URL.revokeObjectURL(u));urlCache.clear();
+  await loadAll();toast('Backup restored');showTab('today');
+};
+$('#resetBtn').onclick=async()=>{
+  if(!confirm('Erase ALL data, including photos? This cannot be undone.'))return;
+  if(!confirm('Are you sure? Make a backup first if you might want it later.'))return;
+  for(const s of ['kv','sessions','trays','photos'])await dbClear(s);location.reload();
+};
+
+/* ---------- modal ---------- */
+let onModalClose=null;
+function openModal(html,onClose){const m=$('#modal');m.innerHTML=html;m.classList.remove('hidden');m.scrollTop=0;onModalClose=onClose||null;
+  m.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModal);}
+function closeModal(){const m=$('#modal');m.classList.add('hidden');m.innerHTML='';const f=onModalClose;onModalClose=null;if(f)f();
+  if(currentTab==='photos')renderPhotos();if(currentTab==='today')renderToday();}
+
+/* ---------- setup & start ---------- */
+$('#suStart').value=toDateInput(Date.now());
+$('#suSave').onclick=async()=>{
+  const total=+$('#suTotal').value,cur=+$('#suCurrent').value,start=$('#suStart').value,target=+$('#suTarget').value,interval=+$('#suInterval').value;
+  if(!(total>0)||!(cur>0)||cur>total)return toast('Check your tray numbers');
+  if(!start)return toast('Pick the date you started this tray');
+  if(!(target>0&&target<=24)||!(interval>0))return toast('Check target and days per tray');
+  const now=Date.now();
+  Object.assign(S.settings,{setupDone:true,totalTrays:Math.round(total),target,interval:Math.round(interval),trackingStart:now});
+  await saveSettings();
+  const t={num:Math.round(cur),start:Math.min(fromDateInput(start),now)};await dbPut('trays',t);
+  if($('#suWearing').checked)await dbPut('sessions',{start:now,end:null});
+  await loadAll();startApp();
+};
+function startApp(){$('#setup').classList.add('hidden');$('#app').classList.remove('hidden');$('#nav').classList.remove('hidden');showTab('today');}
+(async()=>{
+  await openDB();await loadAll();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+  if(S.settings.setupDone&&S.trays.length)startApp();else $('#setup').classList.remove('hidden');
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
